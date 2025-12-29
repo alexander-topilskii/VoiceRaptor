@@ -1,0 +1,7 @@
+{
+  "name": "WaveForm Recorder",
+  "description": "Professional client-side WAV recorder with marker support and visualization.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}

@@ -1,6 +1,6 @@
 {
-  "name": "WaveForm Recorder",
-  "short_name": "VoiceMemo",
+  "name": "VoiceRaptor Recorder",
+  "short_name": "VoiceRaptor",
   "description": "Professional WAV Recorder with Markers",
   "start_url": "/",
   "display": "standalone",

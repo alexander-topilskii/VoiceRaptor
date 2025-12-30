@@ -151,7 +151,7 @@ const App: React.FC = () => {
                 <h1 className="text-xl font-black tracking-tighter text-slate-100 leading-none bg-gradient-to-br from-white to-slate-400 bg-clip-text text-transparent">
                     VoiceRaptor
                 </h1>
-                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-[0.2em] mt-1 hidden xs:block">Waveform Analytics</p>
+                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-[0.2em] mt-1 hidden xs:block">VoiceRaptor Analytics</p>
             </div>
         </div>
         

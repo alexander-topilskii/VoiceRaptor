@@ -1,146 +1,173 @@
 import React, { useEffect, useRef } from 'react';
+import { AudioMarker } from '../types';
 
 interface VisualizerProps {
   analyser: AnalyserNode | null;
   isRecording: boolean;
+  amplitudeHistory: number[];
+  markers: AudioMarker[];
+  duration: number;
 }
 
-const Visualizer: React.FC<VisualizerProps> = ({ analyser, isRecording }) => {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const animationRef = useRef<number>();
-  const historyRef = useRef<number[]>([]);
+const Visualizer: React.FC<VisualizerProps> = ({ analyser, isRecording, amplitudeHistory, markers, duration }) => {
+  const mainCanvasRef = useRef<HTMLCanvasElement>(null);
+  const overviewCanvasRef = useRef<HTMLCanvasElement>(null);
+  const animationRef = useRef<number>(0);
+  const liveHistoryRef = useRef<number[]>([]);
 
-  // Reset history when recording starts
   useEffect(() => {
     if (isRecording) {
-      historyRef.current = [];
+      liveHistoryRef.current = [];
     }
   }, [isRecording]);
 
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+    const mainCanvas = mainCanvasRef.current;
+    const overviewCanvas = overviewCanvasRef.current;
+    if (!mainCanvas || !overviewCanvas) return;
     
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+    const mainCtx = mainCanvas.getContext('2d');
+    const overviewCtx = overviewCanvas.getContext('2d');
+    if (!mainCtx || !overviewCtx) return;
 
-    // Clear canvas when not recording or no analyser
-    if (!analyser || !isRecording) {
-      if (!isRecording && historyRef.current.length === 0) {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if (!isRecording && liveHistoryRef.current.length === 0) {
+        mainCtx.clearRect(0, 0, mainCanvas.width, mainCanvas.height);
+        overviewCtx.clearRect(0, 0, overviewCanvas.width, overviewCanvas.height);
         
-        // Draw a "ready" line
-        ctx.beginPath();
-        ctx.strokeStyle = '#1e293b';
-        ctx.lineWidth = 2;
-        ctx.moveTo(0, canvas.height / 2);
-        ctx.lineTo(canvas.width, canvas.height / 2);
-        ctx.stroke();
+        mainCtx.beginPath();
+        mainCtx.strokeStyle = '#1e293b';
+        mainCtx.lineWidth = 2;
+        mainCtx.setLineDash([5, 5]);
+        mainCtx.moveTo(0, mainCanvas.height / 2);
+        mainCtx.lineTo(mainCanvas.width, mainCanvas.height / 2);
+        mainCtx.stroke();
+        mainCtx.setLineDash([]);
         
-        ctx.fillStyle = '#64748b';
-        ctx.font = '14px Inter, sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'bottom';
-        ctx.fillText('Ready to record', canvas.width / 2, canvas.height / 2 - 10);
-      }
-      return;
+        mainCtx.fillStyle = '#64748b';
+        mainCtx.font = '500 14px Inter, sans-serif';
+        mainCtx.textAlign = 'center';
+        mainCtx.fillText('READY TO CAPTURE', mainCanvas.width / 2, mainCanvas.height / 2 - 15);
+        return;
     }
 
-    const bufferLength = analyser.fftSize;
+    const bufferLength = analyser ? analyser.fftSize : 0;
     const dataArray = new Uint8Array(bufferLength);
-    // Number of bars to display
-    const BAR_COUNT = 60; 
+    const BAR_COUNT = 80;
 
     const draw = () => {
       animationRef.current = requestAnimationFrame(draw);
 
-      analyser.getByteTimeDomainData(dataArray);
-
-      // Calculate volume (RMS)
-      let sum = 0;
-      for (let i = 0; i < bufferLength; i++) {
-        const x = (dataArray[i] - 128) / 128.0;
-        sum += x * x;
-      }
-      const rms = Math.sqrt(sum / bufferLength);
-      
-      // Amplify for visibility and smooth
-      const volume = Math.min(1, rms * 5);
-
-      // Add to history
-      historyRef.current.push(volume);
-      if (historyRef.current.length > BAR_COUNT) {
-        historyRef.current.shift();
+      if (analyser && isRecording) {
+          analyser.getByteTimeDomainData(dataArray);
+          let sum = 0;
+          for (let i = 0; i < bufferLength; i++) {
+            const x = (dataArray[i] - 128) / 128.0;
+            sum += x * x;
+          }
+          const rms = Math.sqrt(sum / bufferLength);
+          const volume = Math.min(1, rms * 6);
+          liveHistoryRef.current.push(volume);
+          if (liveHistoryRef.current.length > BAR_COUNT) {
+            liveHistoryRef.current.shift();
+          }
       }
 
-      // Draw
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      
-      // Background
-      ctx.fillStyle = 'rgba(15, 23, 42, 0.5)'; // Slate-900 with opacity
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      // --- Main Visualizer Drawing ---
+      mainCtx.clearRect(0, 0, mainCanvas.width, mainCanvas.height);
+      const mWidth = mainCanvas.width;
+      const mHeight = mainCanvas.height;
+      const mBarWidth = mWidth / BAR_COUNT;
+      const mGap = 3;
+      const mEffectiveBarWidth = Math.max(2, mBarWidth - mGap);
 
-      const width = canvas.width;
-      const height = canvas.height;
-      const barWidth = width / BAR_COUNT;
-      const gap = 2;
-      const effectiveBarWidth = Math.max(1, barWidth - gap);
-
-      // Draw center line guide
-      ctx.beginPath();
-      ctx.strokeStyle = '#334155'; // Slate-700
-      ctx.lineWidth = 1;
-      ctx.moveTo(0, height / 2);
-      ctx.lineTo(width, height / 2);
-      ctx.stroke();
-
-      historyRef.current.forEach((vol, i) => {
-        // Calculate height based on volume
-        const barH = Math.max(4, vol * height * 0.9); // At least 4px height
+      // Symmetrical Mirror Bars
+      liveHistoryRef.current.forEach((vol, i) => {
+        const barH = Math.max(4, vol * mHeight * 0.85);
+        const x = i * mBarWidth + (mGap / 2);
+        const yCenter = mHeight / 2;
         
-        const x = i * barWidth;
-        const y = (height - barH) / 2;
-
-        // Dynamic color
-        if (vol > 0.8) {
-             ctx.fillStyle = '#f87171'; // Red-400 (clipping/loud)
+        // Gradient
+        const gradient = mainCtx.createLinearGradient(x, yCenter - barH/2, x, yCenter + barH/2);
+        if (vol > 0.7) {
+            gradient.addColorStop(0, '#f43f5e'); // Rose 500
+            gradient.addColorStop(0.5, '#fb7185'); 
+            gradient.addColorStop(1, '#f43f5e');
         } else {
-             ctx.fillStyle = '#22d3ee'; // Cyan-400
+            gradient.addColorStop(0, '#06b6d4'); // Cyan 500
+            gradient.addColorStop(0.5, '#22d3ee');
+            gradient.addColorStop(1, '#06b6d4');
         }
 
-        ctx.beginPath();
-        ctx.roundRect(x + (gap/2), y, effectiveBarWidth, barH, 4);
-        ctx.fill();
+        mainCtx.shadowBlur = vol > 0.4 ? 15 : 0;
+        mainCtx.shadowColor = vol > 0.7 ? 'rgba(244, 63, 94, 0.4)' : 'rgba(6, 182, 212, 0.4)';
+        
+        mainCtx.fillStyle = gradient;
+        mainCtx.beginPath();
+        mainCtx.roundRect(x, yCenter - barH / 2, mEffectiveBarWidth, barH, mEffectiveBarWidth / 2);
+        mainCtx.fill();
+        
+        mainCtx.shadowBlur = 0;
       });
-      
-      // Draw playhead/current position indicator at the end
-      if (historyRef.current.length > 0) {
-           const lastX = (historyRef.current.length) * barWidth;
-           ctx.shadowColor = '#22d3ee';
-           ctx.shadowBlur = 10;
-           ctx.fillStyle = '#cffafe';
-           ctx.beginPath();
-           ctx.arc(lastX, height/2, 2, 0, Math.PI*2);
-           ctx.fill();
-           ctx.shadowBlur = 0;
+
+      // --- Overview Mini-map Drawing ---
+      overviewCtx.clearRect(0, 0, overviewCanvas.width, overviewCanvas.height);
+      const oWidth = overviewCanvas.width;
+      const oHeight = overviewCanvas.height;
+
+      overviewCtx.beginPath();
+      overviewCtx.strokeStyle = '#1e293b';
+      overviewCtx.lineWidth = 1;
+      overviewCtx.moveTo(0, oHeight / 2);
+      overviewCtx.lineTo(oWidth, oHeight / 2);
+      overviewCtx.stroke();
+
+      if (amplitudeHistory.length > 0) {
+          const step = Math.ceil(amplitudeHistory.length / oWidth);
+          overviewCtx.fillStyle = '#334155';
+          for (let i = 0; i < oWidth; i++) {
+              const dataIndex = Math.floor(i * (amplitudeHistory.length / oWidth));
+              let maxVol = 0;
+              for(let j=0; j < step && (dataIndex+j) < amplitudeHistory.length; j++) {
+                  maxVol = Math.max(maxVol, amplitudeHistory[dataIndex+j]);
+              }
+              const barH = Math.max(2, maxVol * (oHeight - 10));
+              overviewCtx.fillRect(i, (oHeight - barH) / 2, 1, barH);
+          }
+      }
+
+      // Markers
+      if (duration > 0 && markers.length > 0) {
+          markers.forEach(marker => {
+              const x = (marker.time / duration) * oWidth;
+              overviewCtx.beginPath();
+              overviewCtx.strokeStyle = 'rgba(245, 158, 11, 0.6)';
+              overviewCtx.lineWidth = 1.5;
+              overviewCtx.moveTo(x, 0);
+              overviewCtx.lineTo(x, oHeight);
+              overviewCtx.stroke();
+              
+              overviewCtx.beginPath();
+              overviewCtx.fillStyle = '#f59e0b';
+              overviewCtx.arc(x, oHeight / 2, 3.5, 0, Math.PI * 2);
+              overviewCtx.fill();
+          });
       }
     };
 
     draw();
-
     return () => {
       if (animationRef.current) cancelAnimationFrame(animationRef.current);
     };
-  }, [analyser, isRecording]);
+  }, [analyser, isRecording, markers, duration, amplitudeHistory]);
 
   return (
-    <div className="w-full h-48 bg-slate-950 rounded-xl overflow-hidden border border-slate-800 shadow-inner relative">
-      <canvas
-        ref={canvasRef}
-        width={800} 
-        height={300}
-        className="w-full h-full block"
-      />
+    <div className="w-full bg-slate-950 rounded-2xl overflow-hidden border border-slate-800/50 shadow-2xl flex flex-col">
+      <div className="h-14 bg-slate-900/30 border-b border-slate-800/50 relative">
+          <canvas ref={overviewCanvasRef} width={1000} height={56} className="w-full h-full block" />
+      </div>
+      <div className="h-44 relative bg-gradient-to-b from-slate-900/20 to-slate-950">
+        <canvas ref={mainCanvasRef} width={1000} height={176} className="w-full h-full block" />
+      </div>
     </div>
   );
 };

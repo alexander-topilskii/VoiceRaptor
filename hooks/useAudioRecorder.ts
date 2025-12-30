@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { RecorderState, AudioMarker } from '../types.ts';
-import { encodeWAV } from '../services/wavUtils.ts';
+import { RecorderState, AudioMarker } from '../types';
+import { encodeWAV } from '../services/wavUtils';
 
 export const useAudioRecorder = () => {
   const [state, setState] = useState<RecorderState>(RecorderState.IDLE);
@@ -13,8 +13,11 @@ export const useAudioRecorder = () => {
   const processorRef = useRef<ScriptProcessorNode | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const audioChunksRef = useRef<Float32Array[]>([]);
+  
+  // Stores the RMS volume level for each processed chunk to build the mini-map
+  const amplitudeHistoryRef = useRef<number[]>([]); 
+  
   const startTimeRef = useRef<number>(0);
-  const pausedTimeRef = useRef<number>(0);
   const timerIntervalRef = useRef<number | null>(null);
 
   // Initialize Audio Context
@@ -31,7 +34,7 @@ export const useAudioRecorder = () => {
       analyser.fftSize = 256;
       analyserRef.current = analyser;
 
-      // Use ScriptProcessor for raw PCM access (Deprecation note: AudioWorklet is better but harder for single-file example)
+      // Use ScriptProcessor for raw PCM access
       const processor = audioCtx.createScriptProcessor(4096, 1, 1);
       processorRef.current = processor;
 
@@ -42,8 +45,18 @@ export const useAudioRecorder = () => {
       processor.onaudioprocess = (e) => {
         if (state !== RecorderState.PAUSED) {
           const inputData = e.inputBuffer.getChannelData(0);
-          // Clone data to avoid reference issues
+          
+          // 1. Save Raw Data
           audioChunksRef.current.push(new Float32Array(inputData));
+
+          // 2. Calculate RMS for Visualization History (Mini-map)
+          let sum = 0;
+          for (let i = 0; i < inputData.length; i++) {
+             sum += inputData[i] * inputData[i];
+          }
+          const rms = Math.sqrt(sum / inputData.length);
+          // Push amplified volume [0-1]
+          amplitudeHistoryRef.current.push(Math.min(1, rms * 5));
         }
       };
 
@@ -57,6 +70,7 @@ export const useAudioRecorder = () => {
 
   const startRecording = async () => {
     audioChunksRef.current = [];
+    amplitudeHistoryRef.current = [];
     setMarkers([]);
     setDuration(0);
     setError(null);
@@ -89,7 +103,8 @@ export const useAudioRecorder = () => {
   }, [state]);
 
   const addMarker = useCallback(() => {
-    if (state === RecorderState.RECORDING) {
+    // Allow markers in both Recording and Paused states
+    if (state === RecorderState.RECORDING || state === RecorderState.PAUSED) {
       const newMarker: AudioMarker = {
         id: Date.now(),
         time: duration,
@@ -140,6 +155,7 @@ export const useAudioRecorder = () => {
     duration,
     markers,
     analyser: analyserRef.current,
+    amplitudeHistory: amplitudeHistoryRef.current,
     error,
     startRecording,
     pauseRecording,

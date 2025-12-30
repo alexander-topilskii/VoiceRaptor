@@ -1,4 +1,4 @@
-import { AudioMarker } from '../types.ts';
+import { AudioMarker } from '../types';
 
 function writeString(view: DataView, offset: number, string: string) {
   for (let i = 0; i < string.length; i++) {

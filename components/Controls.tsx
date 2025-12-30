@@ -1,6 +1,6 @@
 import React from 'react';
 import { Mic, Square, Pause, Play, Flag } from 'lucide-react';
-import { RecorderState } from '../types.ts';
+import { RecorderState } from '../types';
 
 interface ControlsProps {
   state: RecorderState;

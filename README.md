@@ -3,7 +3,7 @@
 ![banner.png](img/banner.png)
 *Designed for clarity, speed, and privacy.*
 
-Start: https://alexander-topilskii.github.io/VoiceRaptor/
+Start 🎤🎧🚀: https://alexander-topilskii.github.io/VoiceRaptor/
 
 
 ## 🌟 Key Features

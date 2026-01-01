@@ -1,6 +1,10 @@
-# VoiceRaptor 🦖
+# Voice raptor
 
-**VoiceRaptor** is a professional, high-fidelity voice recorder built for the modern web. It combines client-side WAV encoding with advanced waveform visualization and a local-first architecture to ensure your recordings are secure, high-quality, and always accessible.
+![banner.png](img/banner.png)
+*Designed for clarity, speed, and privacy.*
+
+Start 🎤🎧🚀: https://alexander-topilskii.github.io/VoiceRaptor/
+
 
 ## 🌟 Key Features
 
@@ -55,11 +59,9 @@
 
 ## ⚠️ Data Persistence Warning
 
-VoiceRaptor stores data in your browser's **IndexedDB**. 
+VoiceRaptor stores data in your browser's **IndexedDB**.
 *   **Do not use Incognito/Private mode** if you want to keep recordings.
 *   **Clearing browser cache/data** will delete your recordings.
 *   Always **Download/Export** critical recordings to your device's file system.
 
 ---
-
-*Designed for clarity, speed, and privacy.*

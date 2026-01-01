@@ -7,9 +7,10 @@ interface VisualizerProps {
   amplitudeHistory: number[];
   markers: AudioMarker[];
   duration: number;
+  onAddMarker?: () => void;
 }
 
-const Visualizer: React.FC<VisualizerProps> = ({ analyser, isRecording, amplitudeHistory, markers, duration }) => {
+const Visualizer: React.FC<VisualizerProps> = ({ analyser, isRecording, amplitudeHistory, markers, duration, onAddMarker }) => {
   const mainCanvasRef = useRef<HTMLCanvasElement>(null);
   const overviewCanvasRef = useRef<HTMLCanvasElement>(null);
   const animationRef = useRef<number>(0);
@@ -161,7 +162,10 @@ const Visualizer: React.FC<VisualizerProps> = ({ analyser, isRecording, amplitud
   }, [analyser, isRecording, markers, duration, amplitudeHistory]);
 
   return (
-    <div className="w-full bg-slate-950 rounded-2xl overflow-hidden border border-slate-800/50 shadow-2xl flex flex-col">
+    <div 
+      className={`w-full bg-slate-950 rounded-2xl overflow-hidden border border-slate-800/50 shadow-2xl flex flex-col ${isRecording ? 'cursor-crosshair' : ''}`}
+      onClick={isRecording && onAddMarker ? onAddMarker : undefined}
+    >
       <div className="h-14 bg-slate-900/30 border-b border-slate-800/50 relative">
           <canvas ref={overviewCanvasRef} width={1000} height={56} className="w-full h-full block" />
       </div>

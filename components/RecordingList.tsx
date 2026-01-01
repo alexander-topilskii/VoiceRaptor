@@ -53,10 +53,10 @@ const RecordingList: React.FC<RecordingListProps> = ({ recordings, onDelete, onU
 
   if (recordings.length === 0) {
     return (
-      <div className="text-center py-16 px-4">
-        <div className="bg-slate-900/50 rounded-2xl p-8 border border-slate-800/50 inline-block">
-          <Clock className="w-10 h-10 text-slate-700 mx-auto mb-3" />
-          <p className="text-slate-500 font-medium">No captures yet</p>
+      <div className="w-full px-1">
+        <div className="bg-slate-900/50 rounded-2xl p-10 border border-slate-800/50 flex flex-col items-center justify-center text-center w-full">
+          <Clock className="w-12 h-12 text-slate-800 mb-4" />
+          <p className="text-slate-500 font-bold text-lg">No captures yet</p>
           <p className="text-slate-600 text-sm mt-1">Start recording to see your library</p>
         </div>
       </div>

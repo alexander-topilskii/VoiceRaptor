@@ -4,6 +4,7 @@ import { encodeWAV } from '../services/wavUtils';
 
 export const useAudioRecorder = () => {
   const [state, setState] = useState<RecorderState>(RecorderState.IDLE);
+  const stateRef = useRef<RecorderState>(RecorderState.IDLE);
   const [duration, setDuration] = useState(0);
   const [markers, setMarkers] = useState<AudioMarker[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -17,8 +18,12 @@ export const useAudioRecorder = () => {
   // Stores the RMS volume level for each processed chunk to build the mini-map
   const amplitudeHistoryRef = useRef<number[]>([]); 
   
-  const startTimeRef = useRef<number>(0);
   const timerIntervalRef = useRef<number | null>(null);
+
+  // Sync stateRef with state
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
 
   // Initialize Audio Context
   const initAudio = async () => {
@@ -43,7 +48,8 @@ export const useAudioRecorder = () => {
       processor.connect(audioCtx.destination);
 
       processor.onaudioprocess = (e) => {
-        if (state !== RecorderState.PAUSED) {
+        // Use ref to check current state inside the callback (avoid stale closure)
+        if (stateRef.current === RecorderState.RECORDING) {
           const inputData = e.inputBuffer.getChannelData(0);
           
           // 1. Save Raw Data
@@ -79,7 +85,8 @@ export const useAudioRecorder = () => {
     if (!ready) return;
 
     setState(RecorderState.RECORDING);
-    startTimeRef.current = Date.now();
+    // stateRef update handled by useEffect, but for immediate safety in async context:
+    stateRef.current = RecorderState.RECORDING; 
     
     // Timer loop
     timerIntervalRef.current = window.setInterval(() => {
@@ -91,10 +98,14 @@ export const useAudioRecorder = () => {
     if (state === RecorderState.RECORDING) {
       setState(RecorderState.PAUSED);
       if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
-      if (audioCtxRef.current) audioCtxRef.current.suspend();
+      if (audioCtxRef.current && audioCtxRef.current.state === 'running') {
+        audioCtxRef.current.suspend();
+      }
     } else if (state === RecorderState.PAUSED) {
       setState(RecorderState.RECORDING);
-      if (audioCtxRef.current) audioCtxRef.current.resume();
+      if (audioCtxRef.current && audioCtxRef.current.state === 'suspended') {
+        audioCtxRef.current.resume();
+      }
       // Resume timer
       timerIntervalRef.current = window.setInterval(() => {
           setDuration(prev => prev + 0.1);
@@ -104,15 +115,15 @@ export const useAudioRecorder = () => {
 
   const addMarker = useCallback(() => {
     // Allow markers in both Recording and Paused states
-    if (state === RecorderState.RECORDING || state === RecorderState.PAUSED) {
+    if (stateRef.current === RecorderState.RECORDING || stateRef.current === RecorderState.PAUSED) {
       const newMarker: AudioMarker = {
         id: Date.now(),
-        time: duration,
+        time: duration, // Captures current duration from closure? State duration updates on render.
         label: `Marker ${markers.length + 1}`
       };
       setMarkers(prev => [...prev, newMarker]);
     }
-  }, [state, duration, markers.length]);
+  }, [duration, markers.length]); // duration dependency ensures we get the latest time
 
   const stopRecording = async () => {
     if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
@@ -125,6 +136,7 @@ export const useAudioRecorder = () => {
     }
 
     setState(RecorderState.IDLE);
+    stateRef.current = RecorderState.IDLE;
 
     // Process Blob
     const sampleRate = audioCtxRef.current?.sampleRate || 44100;
@@ -147,6 +159,7 @@ export const useAudioRecorder = () => {
     return () => {
       if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
       mediaStreamRef.current?.getTracks().forEach(track => track.stop());
+      if (audioCtxRef.current) audioCtxRef.current.close();
     };
   }, []);
 
